@@ -2,7 +2,7 @@
 
 version='0.1' // your submitted version should be 1.0
 date='today'  // update to the date that you last changed this file
-author="Paul Hancock" // Change to your name
+author="Lachy" // Change to your name
 
 log.info """\
          PHYS4004 workflow assignment
@@ -16,19 +16,22 @@ log.info """\
          """
          .stripIndent()
 
+
 seeds = Channel.of(5, 10)
-ncores = Channel.of(1, 2)
+ncores = Channel.of(1)
+
+
 
 // Create the "cross product" of our two channels into one channel of tuples
 // if seeds/cores are (5,10) and (1,2) then this new channel should consist of
 // (5,1), (5,2), (10,1), (10,2). Tip. Use input_ch.view() to print the channel
 // contents before moving to the next step
-input_ch =
+input_ch = seeds.combine(ncores)
 
-input_ch.view()
+//input_ch.view()
 
 // comment out the rest of the code just for testing
-/*
+
 
 process find {
 
@@ -36,9 +39,9 @@ process find {
         tuple(val(seed), val(cores)) from input_ch
         // the following images are constant across all versions of this process
         // so just use a 'static' or 'ad hoc' channel
-        path(image) from ?
-        path(bkg) from ?
-        path(rms) from ?
+        path(image) from file(params.image) 
+        path(bkg) from file(params.bkg)
+        path(rms) from file(params.rms)
 
         output:
         file('*.csv') into files_ch
@@ -59,7 +62,7 @@ process count {
         input:
         // The input should be all the files provided by the 'find' process
         // they are provided through the files_ch channel
-        path(files) from ?
+        path(files) from files_ch
 
         output:
         file('results.csv') into counted_ch
@@ -96,6 +99,7 @@ process plot {
 
         script:
         """
+	python /scratch/courses0100/lgill/PHYS4004_workflow_assignment/plot_completeness.py --infile /scratch/courses0100/lgill/PHYS4004_workflow_assignment/results/results.csv --outfile "output.png"
         """
 }
-*/
+
