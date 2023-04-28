@@ -1,6 +1,6 @@
 #! /usr/bin/env nextflow
 
-version='0.1' // your submitted version should be 1.0
+version='1' // your submitted version should be 1.0
 date='today'  // update to the date that you last changed this file
 author="Lachy" // Change to your name
 
@@ -17,8 +17,9 @@ log.info """\
          .stripIndent()
 
 
-seeds = Channel.of(5, 10)
-ncores = Channel.of(1)
+seeds = Channel.from(5..95).filter{it%5==0}
+//seeds = Channel.of(5)
+ncores = Channel.of(1,2,4,7)
 
 
 
@@ -39,9 +40,9 @@ process find {
         tuple(val(seed), val(cores)) from input_ch
         // the following images are constant across all versions of this process
         // so just use a 'static' or 'ad hoc' channel
-        path(image) from file(params.image) 
-        path(bkg) from file(params.bkg)
-        path(rms) from file(params.rms)
+        each(image) from Channel.fromPath(params.image) 
+        each(bkg) from Channel.fromPath(params.bkg)
+        each(rms) from Channel.fromPath(params.rms)
 
         output:
         file('*.csv') into files_ch
@@ -62,7 +63,7 @@ process count {
         input:
         // The input should be all the files provided by the 'find' process
         // they are provided through the files_ch channel
-        path(files) from files_ch
+        path(files) from files_ch.collect()
 
         output:
         file('results.csv') into counted_ch
@@ -97,9 +98,45 @@ process plot {
 
 	cpus 4
 
-        script:
-        """
-	python /scratch/courses0100/lgill/PHYS4004_workflow_assignment/plot_completeness.py --infile /scratch/courses0100/lgill/PHYS4004_workflow_assignment/results/results.csv --outfile "output.png"
-        """
+        shell:
+
+
+	'''
+	dir="/scratch/courses0100/lgill/PHYS4004_workflow_assignment/"
+	#cores=$(tail -n +2 /scratch/courses0100/lgill/PHYS4004_workflow_assignment/results/results.csv | cut -d',' -f2 | sort -u)
+
+	cores=$(tail -n +2 ${dir}/results/results.csv | cut -d',' -f2 | sort -u)
+	echo "${cores}"
+
+	for core in ${cores}
+	do
+        	
+		#python /scratch/courses0100/lgill/PHYS4004_workflow_assignment/plot_completeness.py --infile results.csv --outfile output_${core}.png --cores ${core}
+		python ${dir}plot_completeness.py --infile results.csv --outfile output_${core}.png --cores ${core}
+
+
+	done
+        '''
+/*
+	'''
+	dir="/scratch/courses0100/lgill/PHYS4004_workflow_assignment/"
+	 #cores=$(tail -n +2 /scratch/courses0100/lgill/PHYS4004_workflow_assignment/results/results.csv | cut -d',' -f2 | sort -u)
+
+	cores=$(tail -n +2 ${dir}results/results.csv | cut -d',' -f2 | sort -u)
+        echo "${cores}"
+	#echo "stops errors if doest exist yet" > "/scratch/courses0100/lgill/PHYS4004_workflow_assignment/inputs.txt"
+	echo "stops errors if doest exist yet" > "${dir}inputs.txt"	
+	rm "${dir}inputs.txt"
+	counter=0
+        for core in ${cores}
+        do
+
+                echo "--infile results.csv --outfile output_${core}.png --cores ${core}" >> "${dir}/inputs.txt"
+		counter+=1
+        done
+	#cd /scratch/courses0100/lgill/PHYS4004_workflow_assignment/
+	xargs -P${counter} -a ${dir}inputs.txt python ${dir}plot_completeness.py
+	'''
+*/
 }
 
